@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, FlatList,
-  KeyboardAvoidingView, Platform, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ActivityIndicator, StyleSheet,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { askFollowup } from '@/services/scan';
 
@@ -48,60 +49,144 @@ export default function ChatScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: Colors.primary }}
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color={Colors.text} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <View style={styles.aiDot} />
+          <Text style={styles.headerTitle}>Ask Claude AI</Text>
+        </View>
+        <View style={{ width: 40 }} />
+      </View>
+
       <FlatList
         ref={listRef}
         data={messages}
         keyExtractor={(m) => m.id}
-        contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
+        contentContainerStyle={styles.msgList}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         renderItem={({ item }) => (
-          <View style={{
-            alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start',
-            backgroundColor: item.role === 'user' ? Colors.accent : Colors.surface,
-            borderRadius: 16,
-            borderBottomRightRadius: item.role === 'user' ? 4 : 16,
-            borderBottomLeftRadius: item.role === 'assistant' ? 4 : 16,
-            padding: 14,
-            marginBottom: 10,
-            maxWidth: '85%',
-            borderWidth: item.role === 'assistant' ? 1 : 0,
-            borderColor: Colors.border,
-          }}>
-            <Text style={{ color: item.role === 'user' ? Colors.primary : Colors.text, fontSize: 15, lineHeight: 22 }}>
-              {item.content}
-            </Text>
+          <View style={[
+            styles.bubble,
+            item.role === 'user' ? styles.userBubble : styles.aiBubble,
+          ]}>
+            {item.role === 'assistant' && (
+              <View style={styles.aiAvatar}>
+                <Ionicons name="flash" size={12} color={Colors.accent} />
+              </View>
+            )}
+            <View style={[
+              styles.bubbleContent,
+              item.role === 'user' ? styles.userContent : styles.aiContent,
+            ]}>
+              <Text style={[
+                styles.bubbleText,
+                item.role === 'user' ? styles.userText : styles.aiText,
+              ]}>
+                {item.content}
+              </Text>
+            </View>
           </View>
         )}
         ListFooterComponent={loading ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 8 }}>
-            <ActivityIndicator color={Colors.accent} size="small" />
-            <Text style={{ color: Colors.textMuted, fontSize: 13 }}>Claude is thinking...</Text>
+          <View style={styles.thinkingRow}>
+            <View style={styles.aiAvatar}>
+              <Ionicons name="flash" size={12} color={Colors.accent} />
+            </View>
+            <View style={styles.thinkingBubble}>
+              <ActivityIndicator color={Colors.accent} size="small" />
+              <Text style={styles.thinkingText}>Claude is thinking...</Text>
+            </View>
           </View>
         ) : null}
       />
 
-      <View style={{ flexDirection: 'row', padding: 16, gap: 10, alignItems: 'flex-end', borderTopWidth: 1, borderTopColor: Colors.border }}>
+      {/* Input */}
+      <View style={styles.inputRow}>
         <TextInput
-          style={{ flex: 1, backgroundColor: Colors.surface, color: Colors.text, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, maxHeight: 100, borderWidth: 1, borderColor: Colors.border }}
+          style={styles.input}
           placeholder="Ask anything about this scan..."
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={Colors.textLight}
           value={input}
           onChangeText={setInput}
           multiline
           onSubmitEditing={send}
         />
         <TouchableOpacity
-          style={{ backgroundColor: Colors.accent, borderRadius: 20, width: 44, height: 44, justifyContent: 'center', alignItems: 'center', opacity: loading || !input.trim() ? 0.5 : 1 }}
+          style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
           onPress={send}
           disabled={loading || !input.trim()}
         >
-          <Text style={{ fontSize: 18 }}>➤</Text>
+          <Ionicons name="send" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.primaryBg },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: 56, paddingBottom: 12,
+    backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
+  headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  aiDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.accent },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: Colors.text },
+
+  msgList: { padding: 16, paddingBottom: 8, gap: 12 },
+
+  bubble: { flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  userBubble: { justifyContent: 'flex-end' },
+  aiBubble: { justifyContent: 'flex-start' },
+  aiAvatar: {
+    width: 26, height: 26, borderRadius: 8, backgroundColor: Colors.accentBg,
+    justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: Colors.accentBorder,
+    flexShrink: 0,
+  },
+  bubbleContent: { maxWidth: '80%', borderRadius: 16, padding: 14 },
+  userContent: {
+    backgroundColor: Colors.accent,
+    borderBottomRightRadius: 4,
+  },
+  aiContent: {
+    backgroundColor: Colors.surface,
+    borderBottomLeftRadius: 4,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  bubbleText: { fontSize: 15, lineHeight: 22 },
+  userText: { color: '#fff' },
+  aiText: { color: Colors.text },
+
+  thinkingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  thinkingBubble: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.surface, borderRadius: 14, padding: 12,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  thinkingText: { color: Colors.textMuted, fontSize: 13 },
+
+  inputRow: {
+    flexDirection: 'row', alignItems: 'flex-end', gap: 10, padding: 12,
+    borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.surface,
+  },
+  input: {
+    flex: 1, backgroundColor: Colors.surface2, color: Colors.text,
+    borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10,
+    fontSize: 15, maxHeight: 100, borderWidth: 1, borderColor: Colors.border,
+  },
+  sendBtn: {
+    backgroundColor: Colors.accent, borderRadius: 20, width: 44, height: 44,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  sendBtnDisabled: { opacity: 0.4 },
+});
