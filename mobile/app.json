@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "LensAssist",
+    "slug": "lensassist",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "lensassist",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.innovait.lensassist",
+      "infoPlist": {
+        "NSCameraUsageDescription": "LensAssist needs camera access to scan items",
+        "NSPhotoLibraryUsageDescription": "LensAssist needs photo library access to analyze images",
+        "NSSpeechRecognitionUsageDescription": "LensAssist uses speech for accessibility features"
+      }
+    },
+    "android": {
+      "package": "com.innovait.lensassist",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+    },
+    "plugins": [
+      "expo-router",
+      "expo-camera",
+      "expo-image-picker",
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
