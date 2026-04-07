@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '@/constants/colors';
+import { useColors } from '@/hooks/useColors';
 import { useLanguageStore } from '@/store/language';
 import { t } from '@/constants/i18n';
 
@@ -15,27 +15,47 @@ interface TabIconProps {
 }
 
 function TabIcon({ name, outlineName, label, focused }: TabIconProps) {
+  const C = useColors();
   return (
-    <View style={styles.tabItem}>
-      <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
+    <View style={{ alignItems: 'center', gap: 2, paddingTop: 4 }}>
+      <View style={{
+        width: 44, height: 32, borderRadius: 12,
+        justifyContent: 'center', alignItems: 'center',
+        backgroundColor: focused ? C.accentBg : 'transparent',
+      }}>
         <Ionicons
           name={focused ? name : outlineName}
           size={22}
-          color={focused ? Colors.accent : Colors.textLight}
+          color={focused ? C.accent : C.textLight}
         />
       </View>
-      <Text style={[styles.label, focused && styles.labelActive]}>{label}</Text>
+      <Text style={{ fontSize: 10, color: focused ? C.accent : C.textLight, fontWeight: focused ? '700' : '500' }}>
+        {label}
+      </Text>
     </View>
   );
 }
 
 export default function TabsLayout() {
   const lang = useLanguageStore((s) => s.lang);
+  const C = useColors();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarStyle: styles.tabBar,
+        tabBarStyle: {
+          backgroundColor: C.tabBar,
+          borderTopColor: C.border,
+          borderTopWidth: 1,
+          height: 72,
+          paddingTop: 4,
+          paddingBottom: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+          elevation: 8,
+        },
         tabBarShowLabel: false,
         headerShown: false,
       }}
@@ -83,27 +103,3 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: Colors.surface,
-    borderTopColor: Colors.border,
-    borderTopWidth: 1,
-    height: 72,
-    paddingTop: 4,
-    paddingBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  tabItem: { alignItems: 'center', gap: 2, paddingTop: 4 },
-  iconWrap: {
-    width: 44, height: 32, borderRadius: 12,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  iconWrapActive: { backgroundColor: Colors.accentBg },
-  label: { fontSize: 10, color: Colors.textLight, fontWeight: '500' },
-  labelActive: { color: Colors.accent, fontWeight: '700' },
-});

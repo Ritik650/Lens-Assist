@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, Alert,
-  ActivityIndicator, ScrollView,
+  ActivityIndicator, ScrollView, Animated,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
@@ -12,6 +12,7 @@ import { Colors } from '@/constants/colors';
 import { useLanguageStore } from '@/store/language';
 import { t } from '@/constants/i18n';
 import { scanImage } from '@/services/scan';
+import VoiceMode from '@/components/VoiceMode';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -23,15 +24,18 @@ interface ScanMode {
 }
 
 const MODES: ScanMode[] = [
-  { icon: 'scan-outline',   label: 'Auto',      mode: 'auto',         color: '#22C55E' },
-  { icon: 'medical',        label: 'Medicine',   mode: 'medicine',     color: '#EC4899' },
-  { icon: 'nutrition',      label: 'Food',       mode: 'food',         color: '#F97316' },
-  { icon: 'leaf',           label: 'Plant',      mode: 'plant',        color: '#16A34A' },
-  { icon: 'flask',          label: 'Chemical',   mode: 'chemical',     color: '#DC2626' },
-  { icon: 'receipt',        label: 'Receipt',    mode: 'receipt',      color: '#7C3AED' },
-  { icon: 'car-sport',      label: 'Parking',    mode: 'parking_sign', color: '#16A34A' },
-  { icon: 'shirt',          label: 'Clothing',   mode: 'clothing',     color: '#0EA5E9' },
-  { icon: 'newspaper',      label: 'Document',   mode: 'document',     color: '#1D4ED8' },
+  { icon: 'scan-outline',   label: 'Auto',       mode: 'auto',          color: '#22C55E' },
+  { icon: 'medical',        label: 'Medicine',    mode: 'medicine',      color: '#EC4899' },
+  { icon: 'nutrition',      label: 'Food',        mode: 'food',          color: '#F97316' },
+  { icon: 'leaf',           label: 'Plant',       mode: 'plant',         color: '#16A34A' },
+  { icon: 'flask',          label: 'Chemical',    mode: 'chemical',      color: '#DC2626' },
+  { icon: 'receipt',        label: 'Receipt',     mode: 'receipt',       color: '#7C3AED' },
+  { icon: 'car-sport',      label: 'Parking',     mode: 'parking_sign',  color: '#16A34A' },
+  { icon: 'shirt',          label: 'Clothing',    mode: 'clothing',      color: '#0EA5E9' },
+  { icon: 'newspaper',      label: 'Document',    mode: 'document',      color: '#1D4ED8' },
+  { icon: 'person-circle',  label: 'Business',    mode: 'business_card', color: '#0891B2' },
+  { icon: 'cash',           label: 'Currency',    mode: 'currency',      color: '#B45309' },
+  { icon: 'sparkles',       label: 'Skincare',    mode: 'skincare',      color: '#DB2777' },
 ];
 
 export default function ScanScreen() {
@@ -41,11 +45,52 @@ export default function ScanScreen() {
   const [facing, setFacing] = useState<'back' | 'front'>('back');
   const [scanning, setScanning] = useState(false);
   const [activeMode, setActiveMode] = useState(params.mode || 'auto');
+  const [showVoice, setShowVoice] = useState(false);
+  const [lastScanOffline, setLastScanOffline] = useState(false);
+  const [offlineBannerVisible, setOfflineBannerVisible] = useState(false);
   const cameraRef = useRef<CameraView>(null);
+
+  // Animated corner brackets
+  const cornerPulse = useRef(new Animated.Value(1)).current;
+  const cornerOpacity = useRef(new Animated.Value(1)).current;
+  const offlineBannerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (params.mode) setActiveMode(params.mode);
   }, [params.mode]);
+
+  useEffect(() => {
+    if (scanning) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(cornerPulse, { toValue: 0.88, duration: 500, useNativeDriver: true }),
+          Animated.timing(cornerPulse, { toValue: 1, duration: 500, useNativeDriver: true }),
+        ])
+      ).start();
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(cornerOpacity, { toValue: 0.4, duration: 400, useNativeDriver: true }),
+          Animated.timing(cornerOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        ])
+      ).start();
+    } else {
+      cornerPulse.stopAnimation(); cornerPulse.setValue(1);
+      cornerOpacity.stopAnimation(); cornerOpacity.setValue(1);
+    }
+  }, [scanning]);
+
+  // Show/hide offline banner
+  useEffect(() => {
+    if (offlineBannerVisible) {
+      Animated.timing(offlineBannerAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      const timer = setTimeout(() => {
+        Animated.timing(offlineBannerAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start(
+          () => setOfflineBannerVisible(false)
+        );
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [offlineBannerVisible]);
 
   if (!permission) return <View style={styles.container} />;
 
@@ -67,14 +112,29 @@ export default function ScanScreen() {
 
   const currentMode = MODES.find(m => m.mode === activeMode) || MODES[0];
 
-  async function takePicture() {
+  async function captureAndScan(voiceHint?: string) {
     if (!cameraRef.current || scanning) return;
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setScanning(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.8 });
       if (!photo) throw new Error('No photo captured');
-      const result: any = await scanImage({ imageUri: photo.uri, scanMode: activeMode });
+      const result: any = await scanImage({
+        imageUri: photo.uri,
+        scanMode: activeMode,
+        voiceHint,
+      });
+
+      // Check if offline result
+      if (result._offline) {
+        setLastScanOffline(true);
+        setOfflineBannerVisible(true);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      } else {
+        setLastScanOffline(false);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
       router.push({ pathname: '/scan/result', params: { scanId: result.id } });
     } catch (e: any) {
       Alert.alert('Scan failed', e.message);
@@ -92,12 +152,18 @@ export default function ScanScreen() {
     setScanning(true);
     try {
       const result: any = await scanImage({ imageUri: picked.assets[0].uri, scanMode: activeMode });
+      if (result._offline) setOfflineBannerVisible(true);
       router.push({ pathname: '/scan/result', params: { scanId: result.id } });
     } catch (e: any) {
       Alert.alert('Scan failed', e.message);
     } finally {
       setScanning(false);
     }
+  }
+
+  async function handleVoiceTrigger(transcript: string) {
+    setShowVoice(false);
+    await captureAndScan(transcript);
   }
 
   return (
@@ -119,9 +185,20 @@ export default function ScanScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Viewfinder */}
+          {/* Offline banner */}
+          {offlineBannerVisible && (
+            <Animated.View style={[styles.offlineBanner, { opacity: offlineBannerAnim }]}>
+              <Ionicons name="wifi-outline" size={14} color="#fff" />
+              <Text style={styles.offlineBannerText}>Offline Mode — Limited Analysis</Text>
+            </Animated.View>
+          )}
+
+          {/* Viewfinder with animated corners */}
           <View style={styles.viewfinderWrap}>
-            <View style={styles.viewfinder}>
+            <Animated.View style={[
+              styles.viewfinder,
+              { transform: [{ scale: cornerPulse }], opacity: cornerOpacity },
+            ]}>
               <View style={[styles.corner, styles.tl]} />
               <View style={[styles.corner, styles.tr]} />
               <View style={[styles.corner, styles.bl]} />
@@ -132,7 +209,7 @@ export default function ScanScreen() {
                   <Text style={styles.analyzingText}>{t(lang, 'analyzing')}</Text>
                 </View>
               )}
-            </View>
+            </Animated.View>
             <Text style={styles.hint}>
               {scanning
                 ? 'Sending to Claude AI...'
@@ -163,7 +240,7 @@ export default function ScanScreen() {
             </ScrollView>
           </View>
 
-          {/* Controls */}
+          {/* Controls — Gallery | Capture | Voice */}
           <View style={styles.controls}>
             <TouchableOpacity style={styles.sideBtn} onPress={pickFromGallery}>
               <View style={styles.sideBtnIcon}>
@@ -174,7 +251,7 @@ export default function ScanScreen() {
 
             <TouchableOpacity
               style={[styles.captureBtn, scanning && styles.captureBtnScanning]}
-              onPress={takePicture}
+              onPress={() => captureAndScan()}
               disabled={scanning}
             >
               <View style={styles.captureRing}>
@@ -185,16 +262,24 @@ export default function ScanScreen() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.sideBtn} onPress={() => router.push('/(tabs)/tools')}>
-              <View style={styles.sideBtnIcon}>
-                <Ionicons name="construct-outline" size={22} color="#fff" />
+            <TouchableOpacity style={styles.sideBtn} onPress={() => setShowVoice(true)}>
+              <View style={[styles.sideBtnIcon, styles.voiceBtnIcon]}>
+                <Ionicons name="mic-outline" size={22} color="#fff" />
               </View>
-              <Text style={styles.sideBtnLabel}>{t(lang, 'tools')}</Text>
+              <Text style={styles.sideBtnLabel}>Voice</Text>
             </TouchableOpacity>
           </View>
 
         </View>
       </CameraView>
+
+      {/* Voice mode overlay */}
+      {showVoice && (
+        <VoiceMode
+          onVoiceTrigger={handleVoiceTrigger}
+          onClose={() => setShowVoice(false)}
+        />
+      )}
     </View>
   );
 }
@@ -237,6 +322,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
 
+  offlineBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#D97706CC', borderRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 8,
+    alignSelf: 'center',
+  },
+  offlineBannerText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+
   viewfinderWrap: { alignItems: 'center', gap: 16 },
   viewfinder: { width: 250, height: 250, position: 'relative', justifyContent: 'center', alignItems: 'center' },
   corner: { position: 'absolute', width: C, height: C, borderColor: Colors.cameraAccent, borderWidth: 3 },
@@ -271,6 +364,7 @@ const styles = StyleSheet.create({
     width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center', alignItems: 'center',
   },
+  voiceBtnIcon: { backgroundColor: Colors.accent + 'AA' },
   sideBtnLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '500' },
   captureBtn: {
     width: 76, height: 76, borderRadius: 38,

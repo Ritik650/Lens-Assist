@@ -1,0 +1,89 @@
+{
+  "_comment": "LensAssist offline allergen database — ingredient → allergen mappings",
+  "version": "1.0",
+  "allergen_keywords": {
+    "peanuts": [
+      "peanut", "groundnut", "arachis oil", "monkey nut", "beer nuts", "mixed nuts"
+    ],
+    "milk": [
+      "milk", "dairy", "lactose", "casein", "whey", "butter", "cream", "ghee",
+      "curd", "paneer", "cheese", "yogurt", "chhena", "khoa", "condensed milk",
+      "skimmed milk", "buttermilk", "lactalbumin", "lactoglobulin", "rennet"
+    ],
+    "wheat": [
+      "wheat", "flour", "maida", "semolina", "atta", "gluten", "spelt",
+      "kamut", "durum", "farro", "rye", "barley", "triticale",
+      "bread", "pasta", "noodles", "cracker", "biscuit", "cake", "cookie",
+      "wheat starch", "wheat germ", "modified wheat starch"
+    ],
+    "eggs": [
+      "egg", "albumin", "lysozyme", "meringue", "mayonnaise", "mayo",
+      "ovomucin", "ovalbumin", "ovomucoid", "livetin", "egg white", "egg yolk",
+      "globulin", "silici albuminate"
+    ],
+    "soy": [
+      "soy", "soya", "soybean", "edamame", "tofu", "tempeh", "miso",
+      "soy sauce", "tamari", "natto", "soy protein", "soy lecithin",
+      "textured vegetable protein", "tvp", "soy milk", "soy flour"
+    ],
+    "tree_nuts": [
+      "almond", "cashew", "walnut", "pistachio", "pecan", "hazelnut", "filbert",
+      "macadamia", "brazil nut", "chestnut", "pine nut", "coconut",
+      "nut", "mixed nuts", "praline", "marzipan", "nougat", "gianduja"
+    ],
+    "shellfish": [
+      "shrimp", "prawn", "crab", "lobster", "crayfish", "langoustine",
+      "scampi", "barnacle", "krill", "squid", "octopus", "clam",
+      "oyster", "scallop", "mussel", "abalone"
+    ],
+    "fish": [
+      "fish", "salmon", "tuna", "cod", "tilapia", "catfish", "mahi",
+      "halibut", "sardine", "anchovy", "herring", "bass", "flounder",
+      "trout", "snapper", "mackerel", "fish sauce", "worcestershire sauce"
+    ]
+  },
+  "common_products": {
+    "biscuits": ["wheat", "milk", "eggs"],
+    "bread": ["wheat"],
+    "cake": ["wheat", "eggs", "milk"],
+    "chocolate": ["milk", "soy"],
+    "chips": ["wheat"],
+    "cookies": ["wheat", "milk", "eggs"],
+    "crackers": ["wheat"],
+    "ice cream": ["milk", "eggs"],
+    "noodles": ["wheat", "eggs"],
+    "pasta": ["wheat", "eggs"],
+    "pizza": ["wheat", "milk"],
+    "paneer": ["milk"],
+    "butter naan": ["wheat", "milk", "eggs"],
+    "samosa": ["wheat"],
+    "peanut butter": ["peanuts"],
+    "tofu": ["soy"],
+    "soy sauce": ["soy", "wheat"],
+    "mayonnaise": ["eggs", "soy"],
+    "energy bar": ["tree_nuts", "milk", "wheat", "soy"],
+    "granola": ["wheat", "tree_nuts", "milk"],
+    "muesli": ["wheat", "tree_nuts", "milk"],
+    "protein powder": ["milk", "soy", "eggs"],
+    "whey protein": ["milk"],
+    "caesar dressing": ["fish", "eggs", "milk"],
+    "hummus": ["soy"],
+    "miso soup": ["soy"],
+    "pad thai": ["shellfish", "fish", "eggs", "peanuts"],
+    "sushi": ["fish", "shellfish"],
+    "prawn crackers": ["shellfish", "wheat"],
+    "fish and chips": ["fish", "wheat"],
+    "butter chicken": ["milk"],
+    "kheer": ["milk"],
+    "gulab jamun": ["milk", "wheat"],
+    "ladoo": ["wheat", "milk"]
+  },
+  "safe_ingredients": [
+    "water", "salt", "sugar", "oil", "rice", "corn", "potato", "tomato",
+    "onion", "garlic", "ginger", "turmeric", "cumin", "coriander",
+    "pepper", "cardamom", "clove", "cinnamon", "bay leaf",
+    "lemon", "lime", "orange", "apple", "banana", "mango",
+    "carrot", "spinach", "cauliflower", "broccoli", "peas",
+    "lentils", "chickpea", "dal", "rajma", "moong"
+  ]
+}

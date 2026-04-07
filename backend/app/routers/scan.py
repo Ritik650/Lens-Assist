@@ -1,5 +1,6 @@
 import json
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.scan import Scan, ScanMessage, Expense, PlantCollection, FitnessLog, SkinTracking
@@ -16,6 +17,32 @@ router = APIRouter(prefix="/scan", tags=["scan"])
 def _get_profile_dict(db: Session, user_id: str) -> dict:
     profile = get_or_create_profile(db, user_id)
     return serialize_profile(profile)
+
+
+def _get_scan_history(db: Session, user_id: str, limit: int = 15) -> list:
+    """Fetch recent scan summaries for memory graph context."""
+    scans = (
+        db.query(Scan)
+        .filter(Scan.user_id == user_id)
+        .order_by(Scan.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    history = []
+    for s in scans:
+        result = json.loads(s.result_json) if s.result_json else {}
+        history.append({
+            "detected_type": s.detected_type,
+            "product_name": s.product_name,
+            "scan_mode": s.scan_mode,
+            "result": {
+                "allergen_warnings": result.get("allergen_warnings", []),
+                "drug_info": result.get("drug_info"),
+                "safety_info": result.get("safety_info"),
+                "plant_info": result.get("plant_info"),
+            },
+        })
+    return history
 
 
 @router.post("")
@@ -43,6 +70,12 @@ async def scan_image(
         if veh:
             vehicle_info = {"make": veh.make, "model": veh.model, "year": veh.year, "fuel_type": veh.fuel_type}
 
+    # Scan Memory Graph — get user's recent scan history for cross-referencing
+    scan_history = _get_scan_history(db, user_id)
+
+    # Family members from profile
+    family_members = json.loads(profile.get("family_members", "[]")) if isinstance(profile.get("family_members"), str) else profile.get("family_members", [])
+
     try:
         result = await ai_engine.analyze_image(
             image_base64=data.image,
@@ -51,6 +84,8 @@ async def scan_image(
             scan_mode=data.scan_mode,
             pet_info=pet_info,
             vehicle_info=vehicle_info,
+            scan_history=scan_history,
+            family_members=family_members if family_members else None,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
@@ -79,6 +114,82 @@ async def scan_image(
         "result": result,
         "created_at": scan.created_at,
     }
+
+
+@router.get("/{scan_id}/stream-summary")
+async def stream_summary(
+    scan_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Stream a human-readable AI summary of a scan result using SSE."""
+    scan = db.query(Scan).filter(Scan.id == scan_id, Scan.user_id == user_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    scan_result = json.loads(scan.result_json) if scan.result_json else {}
+    profile = _get_profile_dict(db, user_id)
+
+    async def event_stream():
+        try:
+            async for chunk in ai_engine.stream_summary(scan_result, profile):
+                # SSE format: data: <chunk>\n\n
+                escaped = chunk.replace("\n", "\\n")
+                yield f"data: {json.dumps({'text': chunk})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        finally:
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/{scan_id}/analyze-family")
+async def analyze_family(
+    scan_id: str,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Analyze a scan result for each family member."""
+    scan = db.query(Scan).filter(Scan.id == scan_id, Scan.user_id == user_id).first()
+    if not scan:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    profile = _get_profile_dict(db, user_id)
+    family_members = profile.get("family_members", [])
+    if isinstance(family_members, str):
+        family_members = json.loads(family_members)
+
+    if not family_members:
+        return {"family_results": []}
+
+    scan_result = json.loads(scan.result_json) if scan.result_json else {}
+
+    import asyncio
+    tasks = [ai_engine.analyze_family_member(scan_result, m) for m in family_members]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    family_results = []
+    for i, r in enumerate(results):
+        if isinstance(r, Exception):
+            family_results.append({
+                "name": family_members[i].get("name", "Member"),
+                "error": str(r),
+            })
+        else:
+            family_results.append({
+                "name": family_members[i].get("name", "Member"),
+                **r,
+            })
+
+    return {"family_results": family_results}
 
 
 def _auto_save_records(db: Session, scan: Scan, result: dict, user_id: str):
